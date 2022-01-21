@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "le_advertise",
+    "gatt_client",
+]
