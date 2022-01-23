@@ -16,13 +16,17 @@ use structopt::StructOpt;
 struct Opt {
     /// Activate debug mode
     // short and long flags (-d, --debug) will be deduced from the field's name
-    #[structopt(short, long)]
-    _debug: bool,
-
-    /// Advertiser address
+    #[structopt(short, long, help="Show additional information for troubleshooting such as details about the adapters")]
+    debug: bool,
+ 
     // short and long flags (-a, --advertiser) will be deduced from the field's name     
-    #[structopt(short, long)]
+    #[structopt(short, long, required=true, help="The advertisement address in the form XX:XX:XX:XX:XX:XX  ex: 5C:F3:70:A1:71:0F")]
     advertiser: String,
+
+    // short and long flags (-u, --uuid-service) will be deduced from the field's name     
+    #[structopt(short, long, default_value="", help="an optional uuid service to add to the advertisement. ex: 123e4567-e89b-12d3-a456-426614174000")]
+    uuid_service: String,
+    
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -33,7 +37,13 @@ async fn main() -> bluer::Result<()> {
 
     println!("{:?}", opt);
 
+    let debug_mode = opt.debug;    
+    if debug_mode
+    {
+        println!("{:?}", opt);
+    }
     let my_address = opt.advertiser;
+    let uuid_service = opt.uuid_service;
 
     let session = bluer::Session::new().await?;
             
@@ -55,23 +65,40 @@ async fn main() -> bluer::Result<()> {
     //let adapter = session.adapter(adapter_name)?;
     let adapter_name = adapter.name();    
     adapter.set_powered(true).await?;    
+    if debug_mode
+    {
+        println!("Advertising on Bluetooth adapter {}", &adapter_name);
+        println!("    Address:                    {}", adapter.address().await?);
+        println!("    Address type:               {}", adapter.address_type().await?);
+        println!("    Friendly name:              {}", adapter.alias().await?);
+        println!("    System name:                {}", adapter.system_name().await?);
+        println!("    Modalias:                   {:?}", adapter.modalias().await?);
+        println!("    Powered:                    {:?}", adapter.is_powered().await?);        
+    }
 
-    println!("    Address:                    {}", adapter.address().await?);
-    println!("    Address type:               {}", adapter.address_type().await?);
-    println!("    Friendly name:              {}", adapter.alias().await?);
-    println!("    System name:                {}", adapter.system_name().await?);
-    println!("    Modalias:                   {:?}", adapter.modalias().await?);
-    println!("    Powered:                    {:?}", adapter.is_powered().await?);    
-
-    println!("Advertising on Bluetooth adapter {} with address {}", &adapter_name, adapter.address().await?);
-    let le_advertisement = Advertisement {
-        advertisement_type: bluer::adv::Type::Peripheral,
-        service_uuids: vec!["123e4567-e89b-12d3-a456-426614174000".parse().unwrap()].into_iter().collect(),
-        discoverable: Some(true),
-        local_name: Some("le_advertise".to_string()),
-        ..Default::default()
+    let le_advertisement = if uuid_service==""
+    {
+        Advertisement {
+            advertisement_type: bluer::adv::Type::Peripheral,
+            discoverable: Some(true),
+            local_name: Some("le_advertise".to_string()),
+            ..Default::default()
+        }
+    }
+    else
+    {
+       Advertisement {
+            advertisement_type: bluer::adv::Type::Peripheral,
+            service_uuids: vec![uuid_service.parse().unwrap()].into_iter().collect(),
+            discoverable: Some(true),
+            local_name: Some("le_advertise".to_string()),
+            ..Default::default()
+        }
     };
-    println!("{:?}", &le_advertisement);
+    if debug_mode
+    {
+        println!("{:?}", &le_advertisement);
+    }
     let handle = adapter.advertise(le_advertisement).await?;
 
     println!("Press enter to quit");
@@ -79,7 +106,10 @@ async fn main() -> bluer::Result<()> {
     let mut lines = stdin.lines();
     let _ = lines.next_line().await;
 
-    println!("Removing advertisement");
+    if debug_mode
+    {
+        println!("Removing advertisement");
+    }
     drop(handle);
     sleep(Duration::from_secs(1)).await;
 
