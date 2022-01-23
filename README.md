@@ -18,9 +18,11 @@ This tests the [BlueR] Advertisement struct to perform basic advertisements.
 This test assumes two bluetooth controllers are connected to a single Linux VM.
 
 First startup the scan software in one terminal that will look for advertisements from 5C:F3:70:A1:71:0F by scanning with 5C:F3:70:7B:F5:66 
+
 `./target/debug/le_scan  -a 5C:F3:70:A1:71:0F -s 5C:F3:70:7B:F5:66 -d`
 
 Now start the advertiser
+
 `./target/debug/le_advertise  -a 5C:F3:70:A1:71:0F -d`
 
 The scanning software will exit when it detects the advertiser.
@@ -31,10 +33,12 @@ This tests the [BlueR] Advertisement struct to advertise with a service UUID.
 This test assumes two bluetooth controllers are connected to a single Linux VM.
 
 First startup the scan software in one terminal that will look for advertisements from 5C:F3:70:A1:71:0F with a service UUID of 123e4567-e89b-12d3-a456-426614174000 by scanning with 5C:F3:70:7B:F5:66 
+
 `./target/debug/le_scan  -a 5C:F3:70:A1:71:0F -s 5C:F3:70:7B:F5:66 -u 123e4567-e89b-12d3-a456-426614174000 -d`
 
 Now start the advertising the service UUID 123e4567-e89b-12d3-a456-426614174000
-./target/debug/le_advertise  -a 5C:F3:70:A1:71:0F -u 123e4567-e89b-12d3-a456-426614174000 -d
+
+`./target/debug/le_advertise  -a 5C:F3:70:A1:71:0F -u 123e4567-e89b-12d3-a456-426614174000 -d`
 
 The scanning software will exit when it detects the advertiser. It will print whether the correct service UUID was detected.
 
