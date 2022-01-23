@@ -7,13 +7,53 @@ use tokio::{
     time::sleep,
 };
 
+use structopt::StructOpt;
+//use std::str::FromStr;
+
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "le_advertise", about = "A command tool to generate BLE advertisements")]
+struct Opt {
+    /// Activate debug mode
+    // short and long flags (-d, --debug) will be deduced from the field's name
+    #[structopt(short, long)]
+    _debug: bool,
+
+    /// Advertiser address
+    // short and long flags (-a, --advertiser) will be deduced from the field's name     
+    #[structopt(short, long)]
+    advertiser: String,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> bluer::Result<()> {
+
+    let opt = Opt::from_args();
     env_logger::init();
+
+    println!("{:?}", opt);
+
+    let my_address = opt.advertiser;
+
     let session = bluer::Session::new().await?;
+            
+        
     let adapter_names = session.adapter_names().await?;
     let adapter_name = adapter_names.first().expect("No Bluetooth adapter present");
-    let adapter = session.adapter(adapter_name)?;
+    let mut adapter = session.adapter(adapter_name)?;
+    for adapter_name in adapter_names {
+        println!("Checking Bluetooth adapter {}:", &adapter_name);
+        let adapter_tmp = session.adapter(&adapter_name)?;
+        let address = adapter_tmp.address().await?;
+        if  address.to_string() == my_address {
+            adapter =  adapter_tmp;
+            break;
+        }
+    };
+
+    //let adapter_name = adapter_names.first().expect("No Bluetooth adapter present");
+    //let adapter = session.adapter(adapter_name)?;
+    let adapter_name = adapter.name();    
     adapter.set_powered(true).await?;    
 
     println!("    Address:                    {}", adapter.address().await?);

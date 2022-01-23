@@ -1,4 +1,5 @@
-//! Connects to our Bluetooth GATT service and exercises the characteristic.
+//! Scans for advertisements from a particular device  and returns  success or not
+//TODO: Add better exit codes https://www.joshmcguigan.com/blog/custom-exit-status-codes-rust/, https://github.com/JoshMcguigan/exit
 
 use bluer::{gatt::remote::Characteristic, AdapterEvent, Device, Result};
 use futures::{pin_mut, StreamExt};
@@ -9,67 +10,39 @@ use tokio::{
 };
 
 use structopt::StructOpt;
-use std::str::FromStr;
 
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "gatt_client", about = "A command tool to test GATT servers.")]
-enum BlueCommand {
-    Select
-    {
-        #[structopt(short, long, help = "Select the output format.", default_value = "display")]
-        _output: String,
-        
-        address: String,
+#[structopt(name = "le_scan", about = "A command tool to test BLE advertisers")]
+struct Opt {
+    /// Activate debug mode
+    // short and long flags (-d, --debug) will be deduced from the field's name
+    #[structopt(short, long)]
+    _debug: bool,
 
-    },
+    /// Advertiser address
+    // short and long flags (-a, --advertiser) will be deduced from the field's name     
+    #[structopt(short, long)]
+    advertiser: String,
 
-}
+    /// Scanner address
+    // short and long flags (-s, --scanner) will be deduced from the field's name     
+    #[structopt(short, long)]
+    scanner: String,
 
-impl std::fmt::Display for BlueCommand {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            BlueCommand::Select { .. } => write!(f, "Select"),         
-        }        
-    }
-}
-
-
-#[derive(Debug, PartialEq)]
-enum OutputFormat {
-    Display,
-    Json,
-}
-impl FromStr for OutputFormat {
-    type Err = ();
-
-    fn from_str(input: &str) -> std::result::Result<OutputFormat, Self::Err> {
-        match input {
-            "Display"  => Ok(OutputFormat::Display),
-            "display"  => Ok(OutputFormat::Display),
-            "Json"  => Ok(OutputFormat::Json),            
-            "json"  => Ok(OutputFormat::Json),
-            _      => Err(()),
-        }
-    }
-}
-
-impl std::fmt::Display for OutputFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            OutputFormat::Display => write!(f, "Display"),
-            OutputFormat::Json => write!(f, "Json"),
-        }        
-    }
 }
 
 
 include!("gatt.inc");
 
-async fn find_our_characteristic(device: &Device) -> Result<Option<Characteristic>> {
+async fn find_our_characteristic(device: &Device, remote_target_address: &String) -> Result<Option<Characteristic>> {
     let addr = device.address();
     let uuids = device.uuids().await?.unwrap_or_default();
     println!("Discovered device {} with service UUIDs {:?}", addr, &uuids);
+    if remote_target_address == &addr.to_string()
+    {
+        println!("****Found device of interest!****");
+    }
     let md = device.manufacturer_data().await?;
     println!("    Manufacturer data: {:x?}", &md);
 
@@ -198,23 +171,17 @@ async fn exercise_characteristic(char: &Characteristic) -> Result<()> {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> bluer::Result<()> {
-    let blue_command = BlueCommand::from_args();
-
-    let _my_address = match blue_command {
-        BlueCommand::Select { address, ..} => 
-        { 
-            address.clone()      
-        }
-
-    };  
-
+    let opt = Opt::from_args();
     env_logger::init();
-    let session = bluer::Session::new().await?;
-        
-    
-    let adapter = session.adapter("hci1")?;
 
-    /*    
+    println!("{:?}", opt);
+
+    let my_address = opt.scanner;
+    let remote_target_address = opt.advertiser;
+
+    let session = bluer::Session::new().await?;
+            
+        
     let adapter_names = session.adapter_names().await?;
     let adapter_name = adapter_names.first().expect("No Bluetooth adapter present");
     let mut adapter = session.adapter(adapter_name)?;
@@ -227,55 +194,44 @@ async fn main() -> bluer::Result<()> {
             break;
         }
     };
-*/
     //let adapter_name = adapter_names.first().expect("No Bluetooth adapter present");
     //let adapter = session.adapter(adapter_name)?;
     let adapter_name = adapter.name();
     adapter.set_powered(true).await?;
 
+    println!("    Adapter name:               {}", adapter_name);
+    println!("    Address:                    {}", adapter.address().await?);
+    println!("    Address type:               {}", adapter.address_type().await?);
+    println!("    Friendly name:              {}", adapter.alias().await?);
+    println!("    System name:                {}", adapter.system_name().await?);
+    println!("    Modalias:                   {:?}", adapter.modalias().await?);
+    println!("    Powered:                    {:?}", adapter.is_powered().await?);        
+
     {
-        println!(
-            "Discovering on Bluetooth adapter {} with address {}\n",
-            &adapter_name,
-            adapter.address().await?
-        );
         let discover = adapter.discover_devices().await?;
         pin_mut!(discover);
-        let mut done = false;
         while let Some(evt) = discover.next().await {
             match evt {
                 AdapterEvent::DeviceAdded(addr) => {
                     let device = adapter.device(addr)?;
-                    match find_our_characteristic(&device).await {
-                        Ok(Some(char)) => match exercise_characteristic(&char).await {
-                            Ok(()) => {
-                                println!("    Characteristic exercise completed");
-                                done = true;
-                            }
-                            Err(err) => {
-                                println!("    Characteristic exercise failed: {}", &err);
-                            }
-                        },
-                        Ok(None) => (),
-                        Err(err) => {
-                            println!("    Device failed: {}", &err);
-                            let _ = adapter.remove_device(device.address()).await;
-                        }
+
+                    let addr = device.address();
+                    let uuids = device.uuids().await?.unwrap_or_default();
+                    println!("Discovered device {} with service UUIDs {:?}", addr, &uuids);
+                    if remote_target_address == addr.to_string()
+                    {
+                        println!("Result: Found");
+                        break;                        
                     }
-                    match device.disconnect().await {
-                        Ok(()) => println!("    Device disconnected"),
-                        Err(err) => println!("    Device disconnection failed: {}", &err),
-                    }
-                    println!();
+                    
+
                 }
                 AdapterEvent::DeviceRemoved(addr) => {
                     println!("Device removed {}", addr);
                 }
                 _ => (),
             }
-            if done {
-                break;
-            }
+
         }
         println!("Stopping discovery");
     }

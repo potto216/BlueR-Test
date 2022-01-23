@@ -4,5 +4,8 @@ This is a temporary repository to test the functionality of [BlueR]. The reposit
 
  The first test will exercise the functionality of the advertisement capabilities of module bluer::adv by using code from le_advertise.rs to be the advertiser and scanner code pulled from gatt_client.rs to receive and verify the advertisements.
 
+ These tests currently only run under Linux.
+ 
+
 [BlueR]: https://github.com/bluez/bluer
 [Remoc]: https://crates.io/crates/remoc

@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "le_advertise",
+    "le_scan",
     "gatt_client",
 ]
