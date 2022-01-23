@@ -7,7 +7,7 @@ This is a temporary repository to test the functionality of [BlueR]. The reposit
 
  These tests currently only run under Linux.
 
-Please post issues of new tests and how to write more idiomatic Rust  
+Please post issues of new tests and how to write more idiomatic Rust  .
 
 
 ## Test Cases
