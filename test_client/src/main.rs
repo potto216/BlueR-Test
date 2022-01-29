@@ -1,66 +1,62 @@
-use std::net::Ipv4Addr;
-use tokio::net::{TcpStream};
-use remoc::prelude::*;
+//! This crate implements the client of the remote counting service.
 
+use remoc::prelude::*;
+use std::{net::Ipv4Addr, time::Duration};
+use tokio::net::TcpStream;
+
+use counter::{Counter, CounterClient, TCP_PORT};
 
 #[tokio::main]
 async fn main() {
-    // For demonstration we run both client and server in
-    // the same process. In real life connect_client() and
-    // connect_server() would run on different machines.
-    connect_client().await;
-    println!("The client ran!");
-}
+    // Initialize logging.
+    tracing_subscriber::FmtSubscriber::builder().init();
 
-// This would be run on the client.
-// It establishes a Remoc connection over TCP to the server.
-async fn connect_client() {
-    // Wait for server to be ready.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-    // Establish TCP connection.
-    let socket =
-        TcpStream::connect((Ipv4Addr::LOCALHOST, 9870)).await.unwrap();
+    // Establish TCP connection to server.
+    let socket = TcpStream::connect((Ipv4Addr::LOCALHOST, TCP_PORT)).await.unwrap();
     let (socket_rx, socket_tx) = socket.into_split();
 
-    // Establish Remoc connection over TCP.
-    // The connection is always bidirectional, but we can just drop
-    // the unneeded receiver.
-    let (conn, tx, _rx): (_, _, rch::base::Receiver<()>) =
-        remoc::Connect::io(remoc::Cfg::default(), socket_rx, socket_tx)
-        .await.unwrap();
-    tokio::spawn(conn);
+    // Establish a Remoc connection with default configuration over the TCP connection and
+    // consume (i.e. receive) the counter client from the server.
+    let mut client: CounterClient =
+        remoc::Connect::io(remoc::Cfg::default(), socket_rx, socket_tx).consume().await.unwrap();
 
-    // Run client.
-    client(tx).await;
+    // Subscribe to the counter watch and print each value change.
+    println!("Subscribing to counter change notifications");
+    let mut watch_rx = client.watch().await.unwrap();
+    let watch_task = tokio::spawn(async move {
+        loop {
+            while let Ok(()) = watch_rx.changed().await {
+                let value = watch_rx.borrow_and_update().unwrap();
+                println!("Counter change notification: {}", *value);
+            }
+        }
+    });
+    println!("Done!");
+
+    // Print current value.
+    let value = client.value().await.unwrap();
+    println!("Current counter value is {}\n", value);
+
+    // Increase counter value.
+    println!("Increasing counter value by 5");
+    client.increase(5).await.unwrap();
+    println!("Done!\n");
+
+    // Print new value.
+    let value = client.value().await.unwrap();
+    println!("New counter value is {}\n", value);
+
+    // Let the server count to the current value.
+    println!("Asking the server to count to the current value with a step delay of 300ms...");
+    let mut rx = client.count_to_value(1, Duration::from_millis(300)).await.unwrap();
+    while let Ok(Some(i)) = rx.recv().await {
+        println!("Server counts {}", i);
+    }
+    println!("Server is done counting.\n");
+
+    // Wait for watch task.
+    println!("Server exercise is done.");
+    println!("You can now press Ctrl+C to exit or continue watching for value ");
+    println!("change notification caused by other clients.");
+    watch_task.await.unwrap();
 }
-
-
-// User-defined data structures needs to implement Serialize
-// and Deserialize.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct CountReq {
-    up_to: u32,
-    // Most Remoc types like channels can be included in serializable
-    // data structures for transmission to remote endpoints.
-    seq_tx: rch::mpsc::Sender<u32>,
-}
-
-// This would be run on the client.
-// It sends a count request to the server and receives each number
-// as it is counted over a newly established MPSC channel.
-async fn client(mut tx: rch::base::Sender<CountReq>) {
-    // By sending seq_tx over an existing remote channel, a new remote
-    // channel is automatically created and connected to the server.
-    // This all happens inside the existing TCP connection.
-    let (seq_tx, mut seq_rx) = rch::mpsc::channel(1);
-    tx.send(CountReq { up_to: 4, seq_tx }).await.unwrap();
-
-    // Receive counted numbers over new channel.
-    assert_eq!(seq_rx.recv().await.unwrap(), Some(0));
-    assert_eq!(seq_rx.recv().await.unwrap(), Some(1));
-    assert_eq!(seq_rx.recv().await.unwrap(), Some(2));
-    assert_eq!(seq_rx.recv().await.unwrap(), Some(3));
-    assert_eq!(seq_rx.recv().await.unwrap(), None);
-}
-

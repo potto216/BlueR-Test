@@ -5,4 +5,5 @@ members = [
     "gatt_client",
     "test_server",
     "test_client",
+    "lib/counter"
 ]
