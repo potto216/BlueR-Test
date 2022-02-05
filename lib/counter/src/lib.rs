@@ -45,3 +45,18 @@ pub trait Counter {
         &self, step: u32, delay: Duration,
     ) -> Result<rch::mpsc::Receiver<u32>, rtc::CallError>;
 }
+
+/// Remote testing service.
+#[rtc::remote]
+pub trait TestCommand {
+    /// Obtain the current value of the command.
+    async fn value(&self) -> Result<u32, rtc::CallError>;
+ 
+    /// Watch the current value of the counter for immediate notification
+    /// when it changes.
+    async fn watch(&mut self) -> Result<rch::watch::Receiver<u32>, rtc::CallError>;
+
+    /// Get the Bluetooth address
+    async fn get_address(&mut self, address: u32) -> Result<(), IncreaseError>;
+
+}
