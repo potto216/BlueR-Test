@@ -1,9 +1,16 @@
-[workspace]
-members = [
-    "le_advertise",
-    "le_scan",
-    "gatt_client",
-    "test_server",
-    "test_client",
-    "lib/counter"
-]
+[package]
+name = "bluer-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures = "0.3.19"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+remoc = "0.9"
+bluer = "0.13"
+clap = { version = "3", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1"
+rand = "0.8"
