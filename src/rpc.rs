@@ -53,7 +53,9 @@ pub type GenericRpcResult<T> = Result<T, GenericRpcError>;
 #[rtc::remote]
 pub trait BlueRTest {
     /// Get the Bluetooth address
-    async fn get_address(&self) -> GenericRpcResult<[u8; 6]>;
+    async fn get_server_address(&self) -> GenericRpcResult<[u8; 6]>;
+    async fn get_client_address(&self) -> GenericRpcResult<[u8; 6]>;
+    async fn get_client_name(&self) -> GenericRpcResult<String>;
 
     /// Send Bluetooth LE advertisements.
     ///

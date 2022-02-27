@@ -46,29 +46,36 @@ pub async fn run_client(debug: bool, port: u16, opts: ClientOpts) -> Result<()> 
 }
 
 async fn server_address(client: BlueRTestClient, _debug: bool) -> Result<()> {
-    let addr = bluer::Address(client.get_address().await?);
-    println!("The server has Bluetooth address {addr}");
+    let addr = bluer::Address(client.get_server_address().await?);
+    println!("The server has Bluetooth address {addr}",addr=addr);
     Ok(())
 }
 
 async fn advertising_test(client: BlueRTestClient, debug: bool) -> Result<()> {
-    let server_addr = bluer::Address(client.get_address().await?);
+    let server_addr = bluer::Address(client.get_server_address().await?);
 
     let service_uuid = Uuid::new_v4();
     let name: u64 = rand::random();
-    let name = format!("{name:016x}");
+    let name = format!("{name:016x}",name=name);
 
     if debug {
-        println!("Sending advertisement with name {name} and service uuid {service_uuid}");
+        println!("Server {server_addr} sending advertisement with name {name} and service uuid {service_uuid}",server_addr=server_addr, name=name,service_uuid=service_uuid);
     }
     let _stop_adv = client
         .advertise(Some(name.clone()), [service_uuid].into())
         .await
         .context("cannot send advertisement")?;
 
+    
     let session = bluer::Session::new().await?;
-    let adapter = session.default_adapter().await?;
+    //let adapter = session.default_adapter().await?;
+    let adapter = session.adapter(&client.get_client_name().await?).unwrap();   
     let mut disco = adapter.discover_devices_with_changes().await?;
+
+    if debug {
+        println!("Client {client_addr} looking for  advertisement",client_addr=adapter.address().await.unwrap());
+    }
+
 
     let timeout = sleep(Duration::from_secs(20));
     pin_mut!(timeout);

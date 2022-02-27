@@ -3,55 +3,122 @@
 use anyhow::{Context, Result};
 use bluer::{adv::Advertisement, Uuid};
 use remoc::{codec, prelude::*};
-use std::{collections::BTreeSet, net::Ipv4Addr};
+use std::{collections::BTreeSet, net::Ipv4Addr, vec::Vec};
 use tokio::net::TcpListener;
 
 use crate::rpc::{BlueRTest, BlueRTestServer, GenericRpcResult};
 
 /// Runs the server.
 pub async fn run_server(debug: bool, port: u16) -> Result<()> {
+
+    let mut used_address_vec:Vec<String> = Vec::new();
+
     let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, port))
         .await
         .context("cannot listen")?;
 
+
+    let session = bluer::Session::new()
+    .await
+    .context("cannot start BlueR session")?;
+
+    
+
+
     loop {
+        let server_adapter = session.default_adapter().await.unwrap();
         println!("Waiting for connection on port {}", port);
         let (socket, addr) = listener.accept().await.context("cannot accept")?;
         let (socket_rx, socket_tx) = socket.into_split();
 
         println!("Accepted connection from {}", addr);
 
+        let adapter_names = session.adapter_names().await.unwrap();
+        let adapter_name = adapter_names.first().expect("No Bluetooth adapter present");
+        let mut client_adapter = session.adapter(adapter_name).unwrap();
+        for adapter_name in adapter_names {
+            println!("Checking Bluetooth adapter {}:", &adapter_name);
+            let adapter_tmp = session.adapter(&adapter_name).unwrap();
+            let address = adapter_tmp.address().await.unwrap();
+            let mut address_used: bool = false;
+            for used_name in &used_address_vec {
+                if  &address.to_string() == used_name {
+                    address_used = true;
+                    break;
+                }                
+            }
+
+            if  address_used == false {
+                used_address_vec.push(address.to_string());
+                client_adapter =  adapter_tmp;
+                break;
+            }
+         }
+    
+
         let session = bluer::Session::new()
             .await
             .context("cannot start BlueR session")?;
-        let test_obj = BlueRTestObj { debug, session };
+        let test_obj = BlueRTestObj { debug, session, server_adapter, client_adapter };
 
         let (server, client) = BlueRTestServer::<_, codec::Default>::new(test_obj, 1);
+        println!("Calling remoc connect.");
         remoc::Connect::io(remoc::Cfg::default(), socket_rx, socket_tx)
             .provide(client)
             .await
             .context("cannot establish remoc connection")?;
+        println!("Calling server.serve().await;");
         server.serve().await;
+        println!("Finished calling server.serve().await;");
     }
 }
 
 /// Server object for the testing service.
+/// each test will have one server and one client. Set this up at the time of creation
 pub struct BlueRTestObj {
     debug: bool,
     session: bluer::Session,
+    server_adapter:  bluer::Adapter,
+    client_adapter:  bluer::Adapter,
 }
 
 /// Implementation of the remote testing service.
 #[rtc::async_trait]
 impl BlueRTest for BlueRTestObj {
-    async fn get_address(&self) -> GenericRpcResult<[u8; 6]> {
+    async fn get_server_address(&self) -> GenericRpcResult<[u8; 6]> {
+        /*
         let adapter = self
             .session
             .default_adapter()
             .await
-            .map_err(anyhow::Error::from)?;
+            .map_err(anyhow::Error::from)?; */
+        let adapter = self.server_adapter.clone();
         let addr = adapter.address().await.map_err(anyhow::Error::from)?;
         Ok(addr.0)
+    }
+
+    async fn get_client_address(&self) -> GenericRpcResult<[u8; 6]> {
+        /*
+        let adapter = self
+            .session
+            .default_adapter()
+            .await
+            .map_err(anyhow::Error::from)?; */
+        let adapter = self.client_adapter.clone();
+        let addr = adapter.address().await.map_err(anyhow::Error::from)?;
+        Ok(addr.0)
+    }
+
+    async fn get_client_name(&self) -> GenericRpcResult<String> {
+        /*
+        let adapter = self
+            .session
+            .default_adapter()
+            .await
+            .map_err(anyhow::Error::from)?; */
+        let adapter = self.client_adapter.clone();
+        let adapter_name = adapter.name().to_string();
+        Ok(adapter_name)
     }
 
     async fn advertise(
@@ -78,7 +145,7 @@ impl BlueRTest for BlueRTestObj {
             .map_err(anyhow::Error::from)?;
 
         if self.debug {
-            println!("Sending advertisement {adv:?}");
+            println!("Server {address:?} sending advertisement {adv:?}", adv=adv, address=adapter.address().await.unwrap());
         }
         let hndl = adapter.advertise(adv).await.map_err(anyhow::Error::from)?;
 
