@@ -39,7 +39,9 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
         let adapter_name = adapter_names.first().expect("No Bluetooth adapter present");
         let mut client_adapter = session.adapter(adapter_name).unwrap();
         for adapter_name in adapter_names {
+            if debug {
             println!("Checking Bluetooth adapter {}:", &adapter_name);
+            }
             let adapter_tmp = session.adapter(&adapter_name).unwrap();
             let address = adapter_tmp.address().await.unwrap();
             let mut address_used: bool = false;
@@ -65,20 +67,28 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
         let test_obj = BlueRTestObj { debug, session, server_adapter, client_adapter };
 
         let (server, client) = BlueRTestServer::<_, codec::Default>::new(test_obj, 1);
+        if debug {
         println!("Calling remoc connect.");
+        }
         remoc::Connect::io(remoc::Cfg::default(), socket_rx, socket_tx)
             .provide(client)
             .await
             .context("cannot establish remoc connection")?;
-        println!("Calling server.serve().await;");
+        if debug {
+            println!("Calling server.serve().await;");
+        }
         server.serve().await;
+        if debug {
         println!("Finished calling server.serve().await;");
+        }
 
         //Free the used address
         used_address_vec.retain(|x| *x != client_address);
-        println!("Removed client address {client_address} from the used address list. Current used address list is:", client_address=client_address);
-        for used_address in &used_address_vec {
-            println!("{used_address}",used_address=used_address);
+        if debug {
+            println!("Removed client address {client_address} from the used address list. Current used address list is:", client_address=client_address);
+            for used_address in &used_address_vec {
+                println!("{used_address}",used_address=used_address);
+            }
         }
         
         
