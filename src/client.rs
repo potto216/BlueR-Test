@@ -46,8 +46,9 @@ pub async fn run_client(debug: bool, port: u16, opts: ClientOpts) -> Result<()> 
 }
 
 async fn server_address(client: BlueRTestClient, _debug: bool) -> Result<()> {
-    let addr = bluer::Address(client.get_server_address().await?);
-    println!("The server has Bluetooth address {addr}",addr=addr);
+    let server_addr = bluer::Address(client.get_server_address().await?);
+    let client_addr = bluer::Address(client.get_client_address().await?);
+    println!("The server has Bluetooth address {server_addr}. The client address is {client_addr}",server_addr=server_addr, client_addr=client_addr);
     Ok(())
 }
 

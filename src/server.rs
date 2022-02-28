@@ -23,10 +23,12 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
     .context("cannot start BlueR session")?;
 
     
-
+    let server_adapter_original = session.default_adapter().await.unwrap();
+    used_address_vec.push(server_adapter_original.address().await.unwrap().to_string());
 
     loop {
-        let server_adapter = session.default_adapter().await.unwrap();
+        let server_adapter = server_adapter_original.clone();
+        
         println!("Waiting for connection on port {}", port);
         let (socket, addr) = listener.accept().await.context("cannot accept")?;
         let (socket_rx, socket_tx) = socket.into_split();
@@ -59,6 +61,7 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
         let session = bluer::Session::new()
             .await
             .context("cannot start BlueR session")?;
+        let client_address = client_adapter.address().await.unwrap().to_string();
         let test_obj = BlueRTestObj { debug, session, server_adapter, client_adapter };
 
         let (server, client) = BlueRTestServer::<_, codec::Default>::new(test_obj, 1);
@@ -70,6 +73,15 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
         println!("Calling server.serve().await;");
         server.serve().await;
         println!("Finished calling server.serve().await;");
+
+        //Free the used address
+        used_address_vec.retain(|x| *x != client_address);
+        println!("Removed client address {client_address} from the used address list. Current used address list is:", client_address=client_address);
+        for used_address in &used_address_vec {
+            println!("{used_address}",used_address=used_address);
+        }
+        
+        
     }
 }
 
