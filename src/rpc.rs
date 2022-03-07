@@ -5,7 +5,7 @@
 use bluer::Uuid;
 use remoc::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, fmt};
+use std::{collections::BTreeSet, collections::BTreeMap, fmt};
 
 /// Generic RPC error.
 #[derive(Clone, Serialize, Deserialize)]
@@ -60,9 +60,15 @@ pub trait BlueRTest {
     /// Send Bluetooth LE advertisements.
     ///
     /// The sending is stopped when the returned oneshot channel sender is dropped.
-    async fn advertise(
+    async fn advertise_service_uuids(
         &self,
         local_name: Option<String>,
         service_uuids: BTreeSet<Uuid>,
+    ) -> GenericRpcResult<rch::oneshot::Sender<()>>;
+
+    async fn advertise_service_data(
+        &self,
+        local_name: Option<String>,
+        service_data: BTreeMap<Uuid, Vec<u8>>,
     ) -> GenericRpcResult<rch::oneshot::Sender<()>>;
 }
