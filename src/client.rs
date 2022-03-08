@@ -123,6 +123,8 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
             AdapterEvent::DeviceAdded(addr) if addr == server_addr => {
                 let device = adapter.device(addr)?;
 
+                let dev_name = device.name().await?.unwrap();
+                println!("name {} ", dev_name );
 
                 let mut uuid_present = false;
                 if let Some(uuids) = device.uuids().await? {
@@ -138,9 +140,17 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
                     }
                 }
 
+                let service_data = device.service_data().await?.unwrap();
 
-                let dev_name = device.name().await?;
-                let name_match = dev_name == Some(name.clone());
+                for (service_data_uuid, service_data_value ) in service_data.iter()
+                {
+                    println!("service uuid {} / data {:x?}", service_data_uuid, service_data_value);
+                }
+
+
+                let name_match = dev_name == name.clone();
+
+                //println!("uuids {} for address {}", service_data);
 
                 if debug {
                     dbg!(uuid_present);
