@@ -129,36 +129,18 @@ pub struct BlueRTestObj {
 #[rtc::async_trait]
 impl BlueRTest for BlueRTestObj {
     async fn get_server_address(&self) -> GenericRpcResult<[u8; 6]> {
-        /*
-        let adapter = self
-            .session
-            .default_adapter()
-            .await
-            .map_err(anyhow::Error::from)?; */
         let adapter = self.server_adapter.clone();
         let addr = adapter.address().await.map_err(anyhow::Error::from)?;
         Ok(addr.0)
     }
 
     async fn get_client_address(&self) -> GenericRpcResult<[u8; 6]> {
-        /*
-        let adapter = self
-            .session
-            .default_adapter()
-            .await
-            .map_err(anyhow::Error::from)?; */
         let adapter = self.client_adapter.clone();
         let addr = adapter.address().await.map_err(anyhow::Error::from)?;
         Ok(addr.0)
     }
 
     async fn get_client_name(&self) -> GenericRpcResult<String> {
-        /*
-        let adapter = self
-            .session
-            .default_adapter()
-            .await
-            .map_err(anyhow::Error::from)?; */
         let adapter = self.client_adapter.clone();
         let adapter_name = adapter.name().to_string();
         Ok(adapter_name)
@@ -177,11 +159,8 @@ impl BlueRTest for BlueRTestObj {
             ..Default::default()
         };
 
-        let adapter = self
-            .session
-            .default_adapter()
-            .await
-            .map_err(anyhow::Error::from)?;
+        let adapter = self.server_adapter.clone();
+            
         adapter
             .set_powered(true)
             .await
@@ -220,11 +199,7 @@ impl BlueRTest for BlueRTestObj {
             ..Default::default()
         };
 
-        let adapter = self
-            .session
-            .default_adapter()
-            .await
-            .map_err(anyhow::Error::from)?;
+        let adapter = self.server_adapter.clone();
         adapter
             .set_powered(true)
             .await

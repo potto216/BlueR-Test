@@ -81,7 +81,7 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
 */
     
     
-
+    let service_data_random_bytes: Vec<u8> = (0..8).map(|_| { rand::random::<u8>() }).collect();
     let _stop_adv =  if service_data_length == 0 {
         client
         .advertise_service_uuids(Some(name.clone()), [service_uuid].into())
@@ -89,10 +89,10 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
         .context("cannot send advertisement")?
     } else
     {
-        let random_bytes: Vec<u8> = (0..8).map(|_| { rand::random::<u8>() }).collect();
-        println!("{:?}", random_bytes);
+        
+        println!("{:?}", service_data_random_bytes);
         let mut service_data: BTreeMap<Uuid, Vec<u8>> = BTreeMap::new();
-        service_data.insert(service_uuid,  random_bytes);
+        service_data.insert(service_uuid,  service_data_random_bytes.clone());
     
         client
         .advertise_service_data(Some(name.clone()), service_data)
@@ -112,6 +112,7 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
 
     let timeout = sleep(Duration::from_secs(20));
     pin_mut!(timeout);
+    let mut received_service_data_valid = false;
 
     loop {
         let evt = tokio::select! {
@@ -127,26 +128,57 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
                 println!("name {} ", dev_name );
 
                 let mut uuid_present = false;
-                if let Some(uuids) = device.uuids().await? {
+                print!("**c1");
 
-                    if debug {
-                        //let uuid_vec = uuids.into_iter().collect::<Vec<_>>();
-                        let uuid_vec = uuids.iter().map(|n| n.to_string()).collect::<Vec<_>>();
-                        println!("uuids {} for address {}", uuid_vec.join(","), addr);
-                    }
 
-                    if uuids.contains(&service_uuid) {
-                        uuid_present = true;
-                    }
-                }
-
-                let service_data = device.service_data().await?.unwrap();
-
-                for (service_data_uuid, service_data_value ) in service_data.iter()
+                if service_data_length > 0
                 {
-                    println!("service uuid {} / data {:x?}", service_data_uuid, service_data_value);
-                }
 
+                    match device.service_data().await? {
+                        Some(service_data) => {
+                            print!("**c2");
+                            for (service_data_uuid, service_data_value ) in service_data.iter()
+                            {
+                                println!("service uuid {} / data {:x?}", service_data_uuid, service_data_value);
+                                if received_service_data_valid == false
+                                {
+                                 let matching = service_data_value.iter().zip(&service_data_random_bytes).filter(|&(a, b)| a == b).count();
+                                 if matching == service_data_random_bytes.len()
+                                 {
+                                    received_service_data_valid = true;
+                                    if service_data_uuid == &service_uuid {
+                                        uuid_present = true;
+                                    }
+
+                                 }
+                                }                                
+                            }
+
+   
+
+                         }  
+                        None => {print!("No service data found."); }
+                    }
+
+                }
+                else
+                {
+                    if let Some(uuids) = device.uuids().await? {
+
+                        if debug {
+                            //let uuid_vec = uuids.into_iter().collect::<Vec<_>>();
+                            let uuid_vec = uuids.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+                            println!("uuids {} for address {}", uuid_vec.join(","), addr);
+                        }
+    
+                        if uuids.contains(&service_uuid) {
+                            uuid_present = true;
+                        }
+                    }
+    
+
+                }
+                print!("**c3");
 
                 let name_match = dev_name == name.clone();
 
@@ -155,11 +187,23 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
                 if debug {
                     dbg!(uuid_present);
                     dbg!(name_match);
+                    dbg!(received_service_data_valid);
                 }
 
-                if uuid_present && name_match {
-                    break;
+                if service_data_length > 0
+                {
+                    if received_service_data_valid && name_match {
+                        break;
+                    }
+    
                 }
+                else {
+                    if uuid_present && name_match {
+                        break;
+                    }
+    
+                }
+
             }
             _ => (),
         }
