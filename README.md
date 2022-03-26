@@ -1,33 +1,31 @@
 # BlueR-Test - Code to test BlueR's functionality
 
 ## Overview
-This is a temporary repository to test the functionality of [BlueR]. The repository will focus on system tests using code that controls Bluetooth (BR/EDR and BLE) adapters as opposed to a mocking interface. The tests will validate [BlueR] functionality over the air between multiple adapters. [Remoc] will be used to coordinate the multiple programs communicating through the adapters. The current suite of tests are:
+This is a temporary repository to test the functionality of [BlueR]. The repository will focus on system tests using code that controls Bluetooth (BR/EDR and BLE) adapters as opposed to a mocking interface. The tests will validate [BlueR] functionality over the air between multiple adapters. [Remoc] will be used to coordinate the multiple programs communicating through the adapters. The testing framework is based on a client server architecture. A server is started which listens for clients to request tests. Clients then connect to the server using [Remoc] and perform individual tests.
 
-The name is randomly generated
+All tests assumes two bluetooth controllers are connected to a single Linux host. Additionally all tests require the server to be started before the clients. 
 
- 1. Check the address functionality of the client
- 2. Exercise the functionality of the advertisement capabilities of module bluer::adv 
- 
- These tests currently only run under Linux.
-
-## Test Cases
-
-### Test the basic advertise feature 
-
-This tests the [BlueR] Advertisement struct to perform basic advertisements. 
-This test assumes two bluetooth controllers are connected to a single Linux VM.
-
-
-First startup the server software in one terminal that will look for clients requesting tests. The server manages the adapters. The server can be started with:
+To sue the framework first startup the server software in one terminal that will look for clients requesting tests. The server manages the adapters. The server can be started with:
 `cargo run -- -d server`
 
+Next in another terminal start a client. A client will perform one test of [BlueR]'s functionality and exit.
+
+## Test Cases
+For all tests the name of the device is randomly generated. These tests currently only run under Linux. The current suite of tests are:
+
+### Test the ability to detect a server advertising
+In this test the client receives the server address over [Remoc] and then looks for an advertisement from that address
 To test receiving a server address run:
 `cargo run -- -d client server-address`
 
-To test 
+
+### Exercise the functionality of the advertisement capabilities of module bluer::adv 
+These tests verify that the server BLE advertisements are populated with the correct information.
+To test sending service uuids or data in the advertisement
 `cargo run -- -d client advertising-service-data`
 `cargo run -- -d client advertising-service-uuids128`
 
+### The general usage is
 USAGE:
     bluer-test client [OPTIONS] <SUBCOMMAND>
 
