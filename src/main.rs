@@ -1,4 +1,7 @@
 //! BlueR testing tool.
+//#[macro_use]
+//extern crate log;
+//use env_logger::Env;
 
 mod client;
 mod rpc;
@@ -8,6 +11,9 @@ use anyhow::Result;
 use clap::Parser;
 use client::{run_client, ClientOpts};
 use server::run_server;
+use tracing_subscriber::{layer::SubscriberExt, Registry};
+use std::io::Stderr;
+use tracing_stackdriver::Stackdriver;
 
 /// BlueR testing tool.
 #[derive(Parser)]
@@ -34,7 +40,18 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::FmtSubscriber::builder().init();
+
+  //  tracing_subscriber::FmtSubscriber::builder().init();
+
+    let make_writer = || std::io::Stderr;
+    let stackdriver = Stackdriver::with_writer(make_writer); // writes to std::io::Stderr
+    let subscriber = Registry::default().with(stackdriver);
+
+    tracing::subscriber::set_global_default(subscriber).expect("Could not set up global logger");
+
+    log::info!("starting up");
+
+
     let opt = Opts::parse();
 
     let debug = opt.debug;

@@ -129,6 +129,7 @@ pub struct BlueRTestObj {
 #[rtc::async_trait]
 impl BlueRTest for BlueRTestObj {
     async fn get_server_address(&self) -> GenericRpcResult<[u8; 6]> {
+       
         let adapter = self.server_adapter.clone();
         let addr = adapter.address().await.map_err(anyhow::Error::from)?;
         Ok(addr.0)

@@ -1,9 +1,11 @@
 //! Client implementation.
 
+
+use bluer::{AdapterEvent};
 use anyhow::{bail, Context, Result};
-use bluer::{AdapterEvent, Uuid, UuidExt};
+use bluer::{ Uuid, UuidExt};
 use clap::Parser;
-use futures::{pin_mut, StreamExt};
+use futures::{pin_mut,StreamExt};
 use remoc::prelude::*;
 use std::{time::Duration, collections::BTreeMap, vec::Vec};
 use tokio::{net::TcpStream, time::sleep};
