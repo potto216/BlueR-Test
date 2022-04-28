@@ -75,11 +75,11 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
             println!("Error, no free adapters.");
         }
 
-        let session = bluer::Session::new()
+        let _session = bluer::Session::new()
             .await
             .context("cannot start BlueR session")?;
         let client_address = client_adapter.address().await.unwrap().to_string();
-        let test_obj = BlueRTestObj { debug, session, server_adapter, client_adapter };
+        let test_obj = BlueRTestObj { debug, server_adapter, client_adapter };
 
         let (server, client) = BlueRTestServer::<_, codec::Default>::new(test_obj, 1);
         if debug {
@@ -120,7 +120,7 @@ pub async fn run_server(debug: bool, port: u16) -> Result<()> {
 /// each test will have one server and one client. Set this up at the time of creation
 pub struct BlueRTestObj {
     debug: bool,
-    session: bluer::Session,
+    //session: bluer::Session,
     server_adapter:  bluer::Adapter,
     client_adapter:  bluer::Adapter,
 }

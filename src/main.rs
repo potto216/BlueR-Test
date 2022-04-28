@@ -11,9 +11,13 @@ use anyhow::Result;
 use clap::Parser;
 use client::{run_client, ClientOpts};
 use server::run_server;
-use tracing_subscriber::{layer::SubscriberExt, Registry};
-use std::io::Stderr;
-use tracing_stackdriver::Stackdriver;
+//use tracing_subscriber::{layer::SubscriberExt, Registry};
+//use std::io::Stderr;
+//use tracing_stackdriver::Stackdriver;
+use tracing::subscriber::set_global_default;
+use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+
 
 /// BlueR testing tool.
 #[derive(Parser)]
@@ -41,15 +45,47 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
 
-  //  tracing_subscriber::FmtSubscriber::builder().init();
+//   tracing_subscriber::FmtSubscriber::builder().init();
 
-    let make_writer = || std::io::Stderr;
-    let stackdriver = Stackdriver::with_writer(make_writer); // writes to std::io::Stderr
-    let subscriber = Registry::default().with(stackdriver);
+    //let make_writer = || std::io::Stderr;
+    //let stackdriver = Stackdriver::with_writer(make_writer); // writes to std::io::Stderr
+  //  let subscriber = Registry::default();
+//    let subscriber = tracing_subscriber::fmt()
+ //   .with_writer(std::io::stderr)
+  //  .finish();
+    
 
-    tracing::subscriber::set_global_default(subscriber).expect("Could not set up global logger");
+    //tracing::subscriber::set_global_default(subscriber).expect("Could not set up global logger");
+ // We are falling back to printing all spans at info-level or above 
+    // if the RUST_LOG environment variable has not been set.
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let file_appender = tracing_appender::rolling::hourly("/home/user/log", "prefix.log");
+    let formatting_layer = BunyanFormattingLayer::new(
+        "zero2prod".into(), 
+        // Output the formatted spans to stdout. 
+        file_appender
+    );
+    //  make_write:std::io::stdout
+    // The `with` method is provided by `SubscriberExt`, an extension
+    // trait for `Subscriber` exposed by `tracing_subscriber`
+    let subscriber = Registry::default()
+        .with(env_filter)
+        .with(JsonStorageLayer)
+        .with(formatting_layer);
+    // `set_global_default` can be used by applications to specify 
+    // what subscriber should be used to process spans.  
+    set_global_default(subscriber).expect("Failed to set subscriber");
+    tracing::info!("starting up");
 
-    log::info!("starting up");
+    let request_id = 888;
+    let request_span = tracing::info_span!(
+        "Adding a new subscriber.",
+        %request_id,
+        subscriber_email = "potto@ieee.org",
+        subscriber_name = "Paul O"
+    );
+    let _request_span_guard = request_span.enter();
 
 
     let opt = Opts::parse();
