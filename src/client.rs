@@ -32,7 +32,7 @@ pub enum Test {
 
 }
 
-pub async fn run_client(debug: bool, port: u16, opts: ClientOpts) -> Result<()> {
+pub async fn run_client(debug_mode: bool, port: u16, opts: ClientOpts) -> Result<()> {
     let socket = TcpStream::connect((opts.server.as_str(), port))
         .await
         .context("cannot connect to server")?;
@@ -44,10 +44,10 @@ pub async fn run_client(debug: bool, port: u16, opts: ClientOpts) -> Result<()> 
         .context("cannot establish remoc connection")?;
 
     match opts.test {
-        Test::ServerAddress => server_address(client, debug).await,
-        Test::AdvertisingServiceUUIDS128 => advertising_test(client, debug, 128, 0).await,
-        Test::AdvertisingServiceUUIDS16 => advertising_test(client, debug, 16, 0).await,
-        Test::AdvertisingServiceData => advertising_test(client, debug, 16, 8).await,
+        Test::ServerAddress => server_address(client, debug_mode).await,
+        Test::AdvertisingServiceUUIDS128 => advertising_test(client, debug_mode, 128, 0).await,
+        Test::AdvertisingServiceUUIDS16 => advertising_test(client, debug_mode, 16, 0).await,
+        Test::AdvertisingServiceData => advertising_test(client, debug_mode, 16, 8).await,
     }
 }
 
@@ -58,7 +58,7 @@ async fn server_address(client: BlueRTestClient, _debug: bool) -> Result<()> {
     Ok(())
 }
 
-async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32, service_data_length: u32) -> Result<()> {
+async fn advertising_test(client: BlueRTestClient, debug_mode: bool, uuid_length: u32, service_data_length: u32) -> Result<()> {
     let server_addr = bluer::Address(client.get_server_address().await?);
 
     let service_uuid =match uuid_length {
@@ -70,7 +70,7 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
     let name: u64 = rand::random();
     let name = format!("{name:016x}",name=name);
 
-    if debug {
+    if debug_mode {
         println!("Server {server_addr} sending advertisement with name {name} and service uuid {service_uuid}",server_addr=server_addr, name=name,service_uuid=service_uuid);
     }
 
@@ -107,7 +107,7 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
     let adapter = session.adapter(&client.get_client_name().await?).unwrap();   
     let mut disco = adapter.discover_devices_with_changes().await?;
 
-    if debug {
+    if debug_mode {
         println!("Client {client_addr} looking for  advertisement",client_addr=adapter.address().await.unwrap());
     }
 
@@ -167,7 +167,7 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
                 {
                     if let Some(uuids) = device.uuids().await? {
 
-                        if debug {
+                        if debug_mode {
                             //let uuid_vec = uuids.into_iter().collect::<Vec<_>>();
                             let uuid_vec = uuids.iter().map(|n| n.to_string()).collect::<Vec<_>>();
                             println!("uuids {} for address {}", uuid_vec.join(","), addr);
@@ -186,7 +186,7 @@ async fn advertising_test(client: BlueRTestClient, debug: bool, uuid_length: u32
 
                 //println!("uuids {} for address {}", service_data);
 
-                if debug {
+                if debug_mode {
                     dbg!(uuid_present);
                     dbg!(name_match);
                     dbg!(received_service_data_valid);

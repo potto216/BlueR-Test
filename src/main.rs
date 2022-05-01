@@ -24,7 +24,7 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 struct Opts {
     /// Show additional information for troubleshooting such as details about the adapters.
     #[clap(short, long)]
-    debug: bool,
+    debug_mode: bool,
     /// TCP port number for connection between client and server.
     #[clap(short, long, default_value = "8650")]
     port: u16,
@@ -41,6 +41,16 @@ enum Command {
     /// Connect to a server.
     Client(ClientOpts),
 }
+
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            Command::Server => write!(f, "Server"),
+            Command::Client(_) => write!(f, "Client"),
+        }        
+    }
+}
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -62,7 +72,7 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| EnvFilter::new("info"));
     let file_appender = tracing_appender::rolling::hourly("/home/user/log", "prefix.log");
     let formatting_layer = BunyanFormattingLayer::new(
-        "zero2prod".into(), 
+        "BlueR-Test".into(), 
         // Output the formatted spans to stdout. 
         file_appender
     );
@@ -76,24 +86,23 @@ async fn main() -> Result<()> {
     // `set_global_default` can be used by applications to specify 
     // what subscriber should be used to process spans.  
     set_global_default(subscriber).expect("Failed to set subscriber");
-    tracing::info!("starting up");
-
-    let request_id = 888;
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber.",
-        %request_id,
-        subscriber_email = "potto@ieee.org",
-        subscriber_name = "Paul O"
-    );
-    let _request_span_guard = request_span.enter();
-
 
     let opt = Opts::parse();
 
-    let debug = opt.debug;
+    let debug_mode = opt.debug_mode;
     let port = opt.port;
-    match opt.cmd {
-        Command::Server => run_server(debug, port).await,
-        Command::Client(opts) => run_client(debug, port, opts).await,
+    let cmd = opt.cmd;
+    let startup_span = tracing::info_span!(
+        "Starting up with the command line",
+        %port,
+        %cmd 
+        
+    );
+    let _startup_span_guard = startup_span.enter();
+
+
+    match cmd {
+        Command::Server => run_server(debug_mode, port).await,
+        Command::Client(opts) => run_client(debug_mode, port, opts).await,
     }
 }
