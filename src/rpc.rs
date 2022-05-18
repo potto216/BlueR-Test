@@ -71,4 +71,8 @@ pub trait BlueRTest {
         local_name: Option<String>,
         service_data: BTreeMap<Uuid, Vec<u8>>,
     ) -> GenericRpcResult<rch::oneshot::Sender<()>>;
+
+    async fn kill_server(&mut self) -> GenericRpcResult<bool>;
+    
+    async fn get_kill_server_status(& self) -> GenericRpcResult<bool>;
 }
