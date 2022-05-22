@@ -29,6 +29,7 @@ pub enum Test {
     AdvertisingServiceUUIDS128,
     AdvertisingServiceUUIDS16,
     AdvertisingServiceData,
+    GattServer,
     KillServer
 
 }
@@ -49,6 +50,7 @@ pub async fn run_client(debug_mode: bool, port: u16, opts: ClientOpts) -> Result
         Test::AdvertisingServiceUUIDS128 => advertising_test(client, debug_mode, 128, 0).await,
         Test::AdvertisingServiceUUIDS16 => advertising_test(client, debug_mode, 16, 0).await,
         Test::AdvertisingServiceData => advertising_test(client, debug_mode, 16, 8).await,
+        Test::GattServer => gatt_server_test(client, debug_mode).await,
         Test::KillServer => request_kill_server(client, debug_mode).await,
 
     }
@@ -217,13 +219,28 @@ async fn advertising_test(client: BlueRTestClient, debug_mode: bool, uuid_length
     Ok(())
 }
 
+async fn gatt_server_test(mut client: BlueRTestClient, debug_mode: bool) -> Result<()> {
+    let server_addr = bluer::Address(client.get_server_address().await?);
+
+    if debug_mode {
+        println!("GATT Server is {server_addr}.");
+    }
+ 
+    
+    let _stop_adv =  client.run_gatt_server()
+        .await
+        .context("cannot run GATT server")?;
+
+    Ok(())
+}
+
+
 async fn request_kill_server(mut client: BlueRTestClient, debug_mode: bool) -> Result<()> {
     let server_addr = bluer::Address(client.get_server_address().await?);
 
     if debug_mode {
         println!("Server {server_addr} shutting down.");
-    }
- 
+    } 
     
     let _stop_adv =  client.kill_server()
         .await

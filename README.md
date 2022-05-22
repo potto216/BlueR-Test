@@ -7,6 +7,8 @@ All tests assumes two bluetooth controllers are connected to a single Linux host
 
 To sue the framework first startup the server software in one terminal that will look for clients requesting tests. The server manages the adapters. The server can be started with:
 `cargo run -- -d server`
+When done with the tests the server is stopped using the command:
+`cargo run -- -d client kill-server`
 
 Next in another terminal start a client. A client will perform one test of [BlueR]'s functionality and exit.
 
@@ -24,6 +26,11 @@ These tests verify that the server BLE advertisements are populated with the cor
 To test sending service uuids or data in the advertisement
 `cargo run -- -d client advertising-service-data`
 `cargo run -- -d client advertising-service-uuids128`
+`cargo run -- -d client advertising-service-uuids16`
+
+### Exercise the functionality of the local and remote GATT services capabilities of module bluer::gatt
+This test verifies that the GATT server is populated correctly and can be read correctly.
+`cargo run -- -d client gatt-server`
 
 ### The general usage is
 USAGE:
@@ -34,12 +41,13 @@ OPTIONS:
     -s, --server <SERVER>    Server hostname or IP address [default: localhost]
 
 SUBCOMMANDS:
-    advertising-service-data
-    advertising-service-uuids128    Performs the advertising test
-    advertising-service-uuids16
-    help                            Print this message or the help of the given subcommand(s)
-    server-address                  Prints the server's Bluetooth address
-
+    gatt-server                     Sets up a GATT server and reads data from it
+    advertising-service-data        Performs the advertising test with service data
+    advertising-service-uuids128    Performs the advertising test with 128 bit UUIDs
+    advertising-service-uuids16     Performs the advertising test with 16 bit SIG UUIDs 
+    server-address                  Prints the server's Bluetooth address  
+    help                            Print this message or the help of the given subcomm
+    kill-server                     Kills the server side software
 
 [BlueR]: https://github.com/bluez/bluer
 [Remoc]: https://crates.io/crates/remoc

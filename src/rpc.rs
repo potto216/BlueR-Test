@@ -75,4 +75,7 @@ pub trait BlueRTest {
     async fn kill_server(&mut self) -> GenericRpcResult<bool>;
     
     async fn get_kill_server_status(& self) -> GenericRpcResult<bool>;
+
+    async fn run_gatt_server(& self) -> GenericRpcResult<bool>;
+
 }

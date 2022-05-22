@@ -188,18 +188,22 @@ impl BlueRTest for BlueRTestObj {
     }
 
 
+    async fn run_gatt_server(& self) -> GenericRpcResult<bool> {        
+        Ok(true)
+    }
+
+
+    async fn get_kill_server_status(& self) -> GenericRpcResult<bool> {        
+        Ok(self.kill_server_status)
+    }
+
     async fn kill_server(&mut self) -> GenericRpcResult<bool> {
         self.kill_server_status=true;
         println!("Killing the server.");
         Ok(self.kill_server_status)
     }
 
-    async fn get_kill_server_status(& self) -> GenericRpcResult<bool> {        
-        Ok(self.kill_server_status)
-    }
-
     
-
     async fn advertise_service_uuids(
         &self,
         local_name: Option<String>,
