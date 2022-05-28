@@ -65,7 +65,7 @@ async fn server_address(client: BlueRTestClient, _debug: bool) -> Result<()> {
 
 async fn advertising_test(client: BlueRTestClient, debug_mode: bool, uuid_length: u32, service_data_length: u32) -> Result<()> {
     let server_addr = bluer::Address(client.get_server_address().await?);
-
+ 
     let service_uuid =match uuid_length {
         128 => Uuid::new_v4(),
         16 => Uuid::from_u16(0x1800),
@@ -219,19 +219,155 @@ async fn advertising_test(client: BlueRTestClient, debug_mode: bool, uuid_length
     Ok(())
 }
 
-async fn gatt_server_test(mut client: BlueRTestClient, debug_mode: bool) -> Result<()> {
+async fn gatt_server_test(client: BlueRTestClient, debug_mode: bool) -> Result<()> {
     let server_addr = bluer::Address(client.get_server_address().await?);
+ 
+    let service_uuid=Uuid::new_v4();
+
+    let name: u64 = rand::random();
+    let name = format!("{name:016x}",name=name);
 
     if debug_mode {
-        println!("GATT Server is {server_addr}.");
+        println!("Server {server_addr} sending advertisement with name {name} and service uuid {service_uuid}",server_addr=server_addr, name=name,service_uuid=service_uuid);
     }
- 
-    
-    let _stop_adv =  client.run_gatt_server()
-        .await
-        .context("cannot run GATT server")?;
 
-    Ok(())
+
+
+    
+
+    let _stop_adv =  client
+        .advertise_service_uuids(Some(name.clone()), [service_uuid].into())
+        .await
+        .context("cannot send advertisement")?;
+ 
+    let session = bluer::Session::new().await?;
+
+    let adapter = session.adapter(&client.get_client_name().await?).unwrap();   
+    let mut disco = adapter.discover_devices_with_changes().await?;
+
+    if debug_mode {
+        println!("Client {client_addr} looking for  advertisement",client_addr=adapter.address().await.unwrap());
+    }
+
+
+    let timeout = sleep(Duration::from_secs(20));
+    pin_mut!(timeout);
+
+    loop {
+        let evt = tokio::select! {
+            Some(evt) = disco.next() => evt,
+            () = &mut timeout => bail!("timeout reached"),
+        };
+
+        match evt {
+            AdapterEvent::DeviceAdded(addr) if addr == server_addr => {
+                let device = adapter.device(addr)?;
+
+                let dev_name = match device.name().await {
+                    Ok(name_option) => { match  name_option {
+                        Some(name) => name,
+                        None => String::from("<None>"),
+                    } }
+                    Err(_) => String::from("<Error>"),
+                };
+                println!("Found server {} advertising with name {} ", addr, dev_name );
+                println!("    Icon:               {:?}", device.icon().await?);
+                println!("    Class:              {:?}", device.class().await?);
+                println!("    UUIDs:              {:?}", device.uuids().await?.unwrap_or_default());
+                println!("    Paried:             {:?}", device.is_paired().await?);
+                println!("    Connected:          {:?}", device.is_connected().await?);
+                println!("    Trusted:            {:?}", device.is_trusted().await?);
+                println!("    Modalias:           {:?}", device.modalias().await?);
+                println!("    RSSI:               {:?}", device.rssi().await?);
+                println!("    TX power:           {:?}", device.tx_power().await?);
+
+                println!("First connecting...");
+                let mut retries = 2;
+                loop {
+                    match device.connect().await {
+                        Ok(()) => {
+                            println!("Connected");
+                            break;
+                        }
+                        Err(err) if retries > 0 => {
+                            println!("Connect error: {}", &err);
+                            retries -= 1; 
+                        }
+                        _ => break,
+        
+                    }
+                }
+
+                loop {
+                    match device.pair().await {
+                        Ok(()) => {
+                            println!("Paired");
+                            break;
+                        }
+                        Err(err) if retries > 0 => {
+                            println!("Pair error: {}", &err);
+                            retries -= 1; 
+                        }
+                        _ => break,
+        
+                    }
+                }
+
+                println!("Found server {} advertising with name {} ", addr, dev_name );
+                println!("    Icon:               {:?}", device.icon().await?);
+                println!("    Class:              {:?}", device.class().await?);
+                println!("    UUIDs:              {:?}", device.uuids().await?.unwrap_or_default());
+                println!("    Paried:             {:?}", device.is_paired().await?);
+                println!("    Connected:          {:?}", device.is_connected().await?);
+                println!("    Trusted:            {:?}", device.is_trusted().await?);
+                println!("    Modalias:           {:?}", device.modalias().await?);
+                println!("    RSSI:               {:?}", device.rssi().await?);
+                println!("    TX power:           {:?}", device.tx_power().await?);
+
+
+                if !device.is_connected().await? {
+                    println!("Connecting...");
+                    let mut retries = 2;
+                    loop {
+                        match device.connect().await {
+                            Ok(()) => break,
+                            Err(err) if retries > 0 => {
+                                println!("Connect error: {}", &err);
+                                retries -= 1; 
+                            }
+                            _ => break,
+            
+                        }
+                    }
+
+                    if  !device.is_connected().await? {
+                        println!("{} Failed to connect.", dev_name);
+                    }
+                    else
+                    {
+                        println!("{} Connected! Attempting to pair", dev_name); 
+                        loop {
+                         match device.pair().await {
+                            Ok(()) => break,
+                            Err(err) => {
+                                println!("Connect error: {}", &err);
+                      
+                            }
+                        }
+                    }
+                    }
+                
+                }
+                else
+                {
+                    println!("Device already connected.");
+                }
+
+            }
+            _ => (),
+        }
+    }
+
 }
 
 

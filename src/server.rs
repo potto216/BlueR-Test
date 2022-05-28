@@ -72,9 +72,7 @@ impl AdapterPool {
                     break;
                 }                
             }
-            println!("*5 address_used = {}", address_used);
             if  address_used == false {
-                println!("*6");
                 self.used_addresses.push(address.to_string());
                 return Ok(adapter_try.clone());
             }
