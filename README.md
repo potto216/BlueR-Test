@@ -5,12 +5,13 @@ This is a temporary repository to test the functionality of [BlueR]. The reposit
 
 All tests assumes two bluetooth controllers are connected to a single Linux host. Additionally all tests require the server to be started before the clients. 
 
-To sue the framework first startup the server software in one terminal that will look for clients requesting tests. The server manages the adapters. The server can be started with:
+To use the framework, first start the server software in a terminal. This will look for clients requesting tests. The server manages the adapters. The server can be started with:
 `cargo run -- -d server`
-When done with the tests the server is stopped using the command:
-`cargo run -- -d client kill-server`
 
 Next in another terminal start a client. A client will perform one test of [BlueR]'s functionality and exit.
+
+When done with the tests the server is stopped from the client using the command:
+`cargo run -- -d client kill-server`
 
 ## Test Cases
 For all tests the name of the device is randomly generated. These tests currently only run under Linux. The current suite of tests are:
@@ -19,7 +20,6 @@ For all tests the name of the device is randomly generated. These tests currentl
 In this test the client receives the server address over [Remoc] and then looks for an advertisement from that address
 To test receiving a server address run:
 `cargo run -- -d client server-address`
-
 
 ### Exercise the functionality of the advertisement capabilities of module bluer::adv 
 These tests verify that the server BLE advertisements are populated with the correct information.
@@ -32,6 +32,11 @@ To test sending service uuids or data in the advertisement
 This test verifies that the GATT server is populated correctly and can be read correctly.
 `cargo run -- -d client gatt-server`
 
+### Logging of tests
+Test report generation can be genreated from the event driven diagnostics captured using Tokio's [tracing] library.
+export RUST_LOG=info
+
+ cat log/prefix.log.2022-04-28-10
 ### The general usage is
 USAGE:
     bluer-test client [OPTIONS] <SUBCOMMAND>
@@ -51,3 +56,4 @@ SUBCOMMANDS:
 
 [BlueR]: https://github.com/bluez/bluer
 [Remoc]: https://crates.io/crates/remoc
+[tracing]: https://crates.io/crates/tracing

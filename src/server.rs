@@ -23,11 +23,11 @@ impl AdapterPool {
     //This adds a server to the database. It will allow multiple servers and will not rmeove one if it already exists. It will choose the first free adapter
     async fn free_adapter(&mut self, adapter:Adapter)  -> Result<bool> 
     { 
-        let debug_mode=true; 
+        let verbose_mode=true; 
 
         let address = adapter.address().await.unwrap().to_string();
 
-        if debug_mode {
+        if verbose_mode {
             println!("Before removal the used address list is:");
             for used_address in &self.used_addresses {
                 println!("{used_address}",used_address=used_address);
@@ -37,7 +37,7 @@ impl AdapterPool {
         //Free the used address
         self.used_addresses.retain(|x| *x != address);
 
-        if debug_mode {
+        if verbose_mode {
             println!("Removed address {address} from the used address list. Current used address list is:", address=address);
             for used_address in &self.used_addresses {
                 println!("{used_address}",used_address=used_address);
@@ -48,11 +48,9 @@ impl AdapterPool {
     }
 
 
-    async fn get_adapter(&mut self, session:&Session) -> Result<Adapter,String> 
+    async fn get_adapter(&mut self, session:&Session, verbose_mode:bool ) -> Result<Adapter,String> 
     {
-        let debug_mode=true;
-
-        let mut address_used: bool = false;
+            let mut address_used: bool = false;
 
         let adapter_names = session.adapter_names().await.unwrap();
         for adapter_name in adapter_names {
@@ -60,14 +58,16 @@ impl AdapterPool {
             address_used = false;
             let adapter_try = session.adapter(&adapter_name).unwrap();
             let address = adapter_try.address().await.unwrap();
-            if debug_mode {
+            if verbose_mode {
                 println!("Checking Bluetooth adapter {} with address of {}:", &adapter_name, address);
                 }    
             
             for used_address in &self.used_addresses {
             
                 if  &address.to_string() == used_address {
+                    if verbose_mode {
                     println!("Checking Bluetooth adapter {} with address of {}:", &adapter_name, address);                    
+                    }
                     address_used = true;
                     break;
                 }                
@@ -79,7 +79,9 @@ impl AdapterPool {
          }
     
          if  address_used == true {
+            if verbose_mode {
             println!("Error, no free adapters.");
+            }
             Err("No free adapters found.".to_string())
         }
         else{
@@ -93,7 +95,7 @@ impl AdapterPool {
 
 /// Runs the server.
 #[instrument]
-pub async fn run_server(debug_mode: bool, port: u16) -> Result<()> {
+pub async fn run_server(verbose_mode: bool, port: u16) -> Result<()> {
 
  //   let mut used_address_vec:Vec<String> = Vec::new();
 
@@ -108,7 +110,7 @@ pub async fn run_server(debug_mode: bool, port: u16) -> Result<()> {
 
     let mut adapter_pool = AdapterPool::new();
     
-    let server_adapter = adapter_pool.get_adapter(&session).await.unwrap();
+    let server_adapter = adapter_pool.get_adapter(&session,verbose_mode).await.unwrap();
     
    loop {
         
@@ -119,12 +121,12 @@ pub async fn run_server(debug_mode: bool, port: u16) -> Result<()> {
         println!("Accepted connection from {}", addr);
 
 
-        let client_adapter= adapter_pool.get_adapter(&session).await.unwrap();
+        let client_adapter= adapter_pool.get_adapter(&session,verbose_mode).await.unwrap();
 
-        let test_obj = BlueRTestObj { debug_mode, kill_server_status: false, server_adapter: server_adapter.clone(), client_adapter: client_adapter.clone() };
+        let test_obj = BlueRTestObj { verbose_mode, kill_server_status: false, server_adapter: server_adapter.clone(), client_adapter: client_adapter.clone() };
 
         let (server, client) = BlueRTestServer::<_, codec::Default>::new(test_obj, 1);
-        if debug_mode {
+        if verbose_mode {
         println!("Calling remoc connect.");
         }
         let res_back=remoc::Connect::io(remoc::Cfg::default(), socket_rx, socket_tx)
@@ -132,13 +134,13 @@ pub async fn run_server(debug_mode: bool, port: u16) -> Result<()> {
             .await
             .context("cannot establish remoc connection")?;
 
-        if debug_mode {
+        if verbose_mode {
             println!("Result back {:?}",res_back);
             println!("Calling server.serve().await;");
         }
         let serve_result=server.serve().await.context("Serve failed")?;
 
-        if debug_mode {
+        if verbose_mode {
         println!("Finished calling server.serve().await;");
         println!("Kill server status is {:?}", serve_result.get_kill_server_status().await.unwrap());
         }
@@ -156,7 +158,7 @@ pub async fn run_server(debug_mode: bool, port: u16) -> Result<()> {
 /// Server object for the testing service.
 /// each test will have one server and one client. Set this up at the time of creation
 pub struct BlueRTestObj {
-    debug_mode: bool,
+    verbose_mode: bool,
     kill_server_status: bool,
     //session: bluer::Session,
     server_adapter:  bluer::Adapter,
@@ -197,7 +199,6 @@ impl BlueRTest for BlueRTestObj {
 
     async fn kill_server(&mut self) -> GenericRpcResult<bool> {
         self.kill_server_status=true;
-        println!("Killing the server.");
         Ok(self.kill_server_status)
     }
 
@@ -222,17 +223,18 @@ impl BlueRTest for BlueRTestObj {
             .await
             .map_err(anyhow::Error::from)?;
 
-        if self.debug_mode {
+        adapter.set_discoverable(true).await.unwrap();
+        if self.verbose_mode {
             println!("Server {address:?} sending advertisement {adv:?}", adv=adv, address=adapter.address().await.unwrap());
         }
         let hndl = adapter.advertise(adv).await.map_err(anyhow::Error::from)?;
 
         let (stop_tx, stop_rx) = rch::oneshot::channel();
-        let debug_mode = self.debug_mode;
+        let verbose_mode = self.verbose_mode;
         tokio::spawn(async move {
             let _ = stop_rx.await;
 
-            if debug_mode {
+            if verbose_mode {
                 println!("Stop sending advertisement");
             }
             drop(hndl);
@@ -261,17 +263,18 @@ impl BlueRTest for BlueRTestObj {
             .await
             .map_err(anyhow::Error::from)?;
 
-        if self.debug_mode {
+        adapter.set_discoverable(true).await.unwrap();
+        if self.verbose_mode {
             println!("Server {address:?} sending advertisement {adv:?}", adv=adv, address=adapter.address().await.unwrap());
         }
         let hndl = adapter.advertise(adv).await.map_err(anyhow::Error::from)?;
 
         let (stop_tx, stop_rx) = rch::oneshot::channel();
-        let debug_mode = self.debug_mode;
+        let verbose_mode = self.verbose_mode;
         tokio::spawn(async move {
             let _ = stop_rx.await;
 
-            if debug_mode {
+            if verbose_mode {
                 println!("Stop sending advertisement");
             }
             drop(hndl);

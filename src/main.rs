@@ -1,7 +1,4 @@
 //! BlueR testing tool.
-//#[macro_use]
-//extern crate log;
-//use env_logger::Env;
 
 mod client;
 mod rpc;
@@ -11,9 +8,8 @@ use anyhow::Result;
 use clap::Parser;
 use client::{run_client, ClientOpts};
 use server::run_server;
-//use tracing_subscriber::{layer::SubscriberExt, Registry};
-//use std::io::Stderr;
-//use tracing_stackdriver::Stackdriver;
+
+
 use tracing::subscriber::set_global_default;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
@@ -24,7 +20,7 @@ use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 struct Opts {
     /// Show additional information for troubleshooting such as details about the adapters.
     #[clap(short, long)]
-    debug_mode: bool,
+    verbose_mode: bool,
     /// TCP port number for connection between client and server.
     #[clap(short, long, default_value = "8650")]
     port: u16,
@@ -55,17 +51,6 @@ impl std::fmt::Display for Command {
 #[tokio::main]
 async fn main() -> Result<()> {
 
-//   tracing_subscriber::FmtSubscriber::builder().init();
-
-    //let make_writer = || std::io::Stderr;
-    //let stackdriver = Stackdriver::with_writer(make_writer); // writes to std::io::Stderr
-  //  let subscriber = Registry::default();
-//    let subscriber = tracing_subscriber::fmt()
- //   .with_writer(std::io::stderr)
-  //  .finish();
-    
-
-    //tracing::subscriber::set_global_default(subscriber).expect("Could not set up global logger");
  // We are falling back to printing all spans at info-level or above 
     // if the RUST_LOG environment variable has not been set.
     let env_filter = EnvFilter::try_from_default_env()
@@ -76,7 +61,7 @@ async fn main() -> Result<()> {
         // Output the formatted spans to stdout. 
         file_appender
     );
-    //  make_write:std::io::stdout
+    
     // The `with` method is provided by `SubscriberExt`, an extension
     // trait for `Subscriber` exposed by `tracing_subscriber`
     let subscriber = Registry::default()
@@ -89,7 +74,7 @@ async fn main() -> Result<()> {
 
     let opt = Opts::parse();
 
-    let debug_mode = opt.debug_mode;
+    let verbose_mode = opt.verbose_mode;
     let port = opt.port;
     let cmd = opt.cmd;
     let startup_span = tracing::info_span!(
@@ -102,7 +87,7 @@ async fn main() -> Result<()> {
 
 
     match cmd {
-        Command::Server => run_server(debug_mode, port).await,
-        Command::Client(opts) => run_client(debug_mode, port, opts).await,
+        Command::Server => run_server(verbose_mode, port).await,
+        Command::Client(opts) => run_client(verbose_mode, port, opts).await,
     }
 }
