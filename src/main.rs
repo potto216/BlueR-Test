@@ -21,6 +21,11 @@ struct Opts {
     /// Show additional information for troubleshooting such as details about the adapters.
     #[clap(short, long)]
     verbose_mode: bool,
+
+    //Path of where to write the log file
+    #[clap(short, long, default_value = ".")]
+    log_path: String,
+
     /// TCP port number for connection between client and server.
     #[clap(short, long, default_value = "8650")]
     port: u16,
@@ -51,11 +56,18 @@ impl std::fmt::Display for Command {
 #[tokio::main]
 async fn main() -> Result<()> {
 
- // We are falling back to printing all spans at info-level or above 
+    let opt = Opts::parse();
+
+    let log_path = opt.log_path;
+    let verbose_mode = opt.verbose_mode;
+    let port = opt.port;
+    let cmd = opt.cmd;
+
+    // We are falling back to printing all spans at info-level or above 
     // if the RUST_LOG environment variable has not been set.
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("info"));
-    let file_appender = tracing_appender::rolling::hourly("/home/user/log", "prefix.log");
+    let file_appender = tracing_appender::rolling::hourly(log_path, "prefix.log");
     let formatting_layer = BunyanFormattingLayer::new(
         "BlueR-Test".into(), 
         // Output the formatted spans to stdout. 
@@ -72,11 +84,6 @@ async fn main() -> Result<()> {
     // what subscriber should be used to process spans.  
     set_global_default(subscriber).expect("Failed to set subscriber");
 
-    let opt = Opts::parse();
-
-    let verbose_mode = opt.verbose_mode;
-    let port = opt.port;
-    let cmd = opt.cmd;
     let startup_span = tracing::info_span!(
         "Starting up with the command line",
         %port,

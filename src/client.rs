@@ -9,7 +9,7 @@ use futures::{pin_mut, StreamExt};
 use remoc::prelude::*;
 use std::{collections::BTreeMap, time::Duration, vec::Vec};
 use tokio::{net::TcpStream, time::sleep};
-use tracing::{instrument};
+use tracing::{instrument, event, Level};
 
 #[derive(Parser, Debug)]
 pub struct ClientOpts {
@@ -122,11 +122,14 @@ async fn advertising_test(
     let adapter = session.adapter(&client.get_client_name().await?).unwrap();
     adapter.set_discoverable(true).await?;
     let mut disco = adapter.discover_devices_with_changes().await?;
+    //let client_addr = &adapter.address().await.unwrap().to_string();
+    let client_addr=32;
+    //trace!(client_addr);
 
+    event!(Level::INFO, "something happened");
     if verbose_mode {
         println!(
-            "Client {client_addr} looking for  advertisement",
-            client_addr = adapter.address().await.unwrap()
+            "Client {client_addr} looking for advertisement."
         );
     }
 
